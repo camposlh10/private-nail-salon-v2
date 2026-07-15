@@ -1,0 +1,710 @@
+openapi: 3.1.0
+info:
+  title: Private Nail Salon API
+  version: 0.2.0-M2
+  description: >
+    Contract-first API for the single-tenant nail salon. Two audiences:
+    a public, anonymous booking site (`/api/v1/public/**`) and an authenticated
+    owner CRM (`/api/v1/admin/**`, server-side session + CSRF). Errors are
+    RFC 7807 `application/problem+json`. Money is integer cents; durations are
+    integer minutes; timestamps are RFC 3339 with offset. The business is
+    resolved server-side — clients never pass a businessId.
+servers:
+  - url: http://localhost:8092
+    description: Local dev
+
+tags:
+  - name: public-catalog
+  - name: admin-auth
+  - name: admin-categories
+  - name: admin-services
+  - name: admin-addons
+  - name: admin-media
+
+paths:
+  # ------------------------------------------------------------------ public
+  /api/v1/public/business:
+    get:
+      tags: [public-catalog]
+      summary: Public business profile (branding, contact, transition notice)
+      security: []
+      responses:
+        "200":
+          description: Business profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicBusiness" }
+
+  /api/v1/public/categories:
+    get:
+      tags: [public-catalog]
+      summary: Active categories in display order
+      security: []
+      responses:
+        "200":
+          description: Active categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PublicCategory" }
+
+  /api/v1/public/services:
+    get:
+      tags: [public-catalog]
+      summary: Active, online-bookable services (optionally filtered)
+      security: []
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema: { type: string }
+          description: Category slug
+        - name: q
+          in: query
+          required: false
+          schema: { type: string }
+          description: Free-text search over name/description
+      responses:
+        "200":
+          description: Active services
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PublicServiceSummary" }
+
+  /api/v1/public/services/{slug}:
+    get:
+      tags: [public-catalog]
+      summary: Service details with active add-ons
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Service detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicServiceDetail" }
+        "404":
+          $ref: "#/components/responses/Problem"
+
+  # -------------------------------------------------------------- admin auth
+  /api/v1/admin/auth/login:
+    post:
+      tags: [admin-auth]
+      summary: Create owner session (sets HttpOnly session cookie)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerMe" }
+        "401":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/admin/auth/logout:
+    post:
+      tags: [admin-auth]
+      summary: Destroy the current owner session
+      responses:
+        "204": { description: Logged out }
+
+  /api/v1/admin/auth/me:
+    get:
+      tags: [admin-auth]
+      summary: Current authenticated owner
+      responses:
+        "200":
+          description: Owner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OwnerMe" }
+        "401":
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/admin/auth/password/request-reset:
+    post:
+      tags: [admin-auth]
+      summary: Request a password-reset email (always 202, no account enumeration)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "202": { description: Accepted }
+
+  /api/v1/admin/auth/password/reset:
+    post:
+      tags: [admin-auth]
+      summary: Complete a password reset with a one-time token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, minLength: 12 }
+      responses:
+        "204": { description: Password changed }
+        "400":
+          $ref: "#/components/responses/Problem"
+
+  # --------------------------------------------------------- admin categories
+  /api/v1/admin/categories:
+    get:
+      tags: [admin-categories]
+      summary: List all categories (any status)
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminCategory" }
+    post:
+      tags: [admin-categories]
+      summary: Create a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CategoryWrite" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminCategory" }
+        "409":
+          $ref: "#/components/responses/Problem"
+
+  /api/v1/admin/categories/order:
+    put:
+      tags: [admin-categories]
+      summary: Reorder categories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReorderRequest" }
+      responses:
+        "204": { description: Reordered }
+
+  /api/v1/admin/categories/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    put:
+      tags: [admin-categories]
+      summary: Edit a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CategoryWrite" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminCategory" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/categories/{id}/status:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    patch:
+      tags: [admin-categories]
+      summary: Activate or archive a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StatusChange" }
+      responses:
+        "200":
+          description: Status changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminCategory" }
+
+  # ----------------------------------------------------------- admin services
+  /api/v1/admin/services:
+    get:
+      tags: [admin-services]
+      summary: Paginated CRM service list
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 0, minimum: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/ServiceStatus" }
+        - name: categoryId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Page of services
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminServicePage" }
+    post:
+      tags: [admin-services]
+      summary: Create a service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceWrite" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminService" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/services/order:
+    put:
+      tags: [admin-services]
+      summary: Reorder services within a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReorderRequest" }
+      responses:
+        "204": { description: Reordered }
+
+  /api/v1/admin/services/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    get:
+      tags: [admin-services]
+      summary: Full editable service
+      responses:
+        "200":
+          description: Service
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminService" }
+        "404": { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [admin-services]
+      summary: Replace editable fields (optimistic locking via version)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ServiceWrite" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminService" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/services/{id}/status:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    patch:
+      tags: [admin-services]
+      summary: Activate or archive a service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StatusChange" }
+      responses:
+        "200":
+          description: Status changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminService" }
+
+  # ------------------------------------------------------------- admin addons
+  /api/v1/admin/services/{id}/addons:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    post:
+      tags: [admin-addons]
+      summary: Create an add-on for a service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddOnWrite" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAddOn" }
+
+  /api/v1/admin/services/{id}/addons/{addOnId}:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+      - name: addOnId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [admin-addons]
+      summary: Edit an add-on
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddOnWrite" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAddOn" }
+
+  /api/v1/admin/services/{id}/addons/{addOnId}/status:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+      - name: addOnId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [admin-addons]
+      summary: Activate or archive an add-on
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StatusChange" }
+      responses:
+        "200":
+          description: Status changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAddOn" }
+
+  # -------------------------------------------------------------- admin media
+  /api/v1/admin/media:
+    post:
+      tags: [admin-media]
+      summary: Upload and validate an image
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                altText:
+                  type: string
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminMedia" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "413": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/media/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    delete:
+      tags: [admin-media]
+      summary: Remove an unreferenced image
+      responses:
+        "204": { description: Deleted }
+        "409": { $ref: "#/components/responses/Problem" }
+
+components:
+  securitySchemes:
+    ownerSession:
+      type: apiKey
+      in: cookie
+      name: SESSION
+      description: >
+        Server-side session established by POST /api/v1/admin/auth/login. Unsafe
+        methods on /admin/** also require the CSRF token (X-XSRF-TOKEN header
+        mirroring the XSRF-TOKEN cookie).
+
+  security:
+    - ownerSession: []
+
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Problem:
+      description: RFC 7807 problem
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetail" }
+
+  schemas:
+    ProblemDetail:
+      type: object
+      description: RFC 7807 problem with `code` and `timestamp` extensions.
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string, description: Stable machine-readable error code }
+        timestamp: { type: string, format: date-time }
+        errors:
+          type: object
+          additionalProperties: { type: string }
+          description: Field-level validation messages (validation errors only)
+
+    ServiceStatus:
+      type: string
+      enum: [DRAFT, ACTIVE, ARCHIVED]
+    PriceType:
+      type: string
+      enum: [FIXED, STARTING_AT, FREE]
+    AddOnStatus:
+      type: string
+      enum: [ACTIVE, ARCHIVED]
+
+    Money:
+      type: object
+      description: Money as integer minor units (cents).
+      properties:
+        amountCents: { type: integer }
+        currency: { type: string, examples: ["USD"] }
+      required: [amountCents, currency]
+
+    PublicBusiness:
+      type: object
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+        timezone: { type: string, examples: ["America/New_York"] }
+        currency: { type: string, examples: ["USD"] }
+        appointmentStartWindowMinutes: { type: integer, examples: [10] }
+        appointmentStartNotice: { type: string }
+
+    PublicCategory:
+      type: object
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+
+    PublicServiceSummary:
+      type: object
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        categorySlug: { type: string }
+        durationMinutes: { type: integer }
+        priceType: { $ref: "#/components/schemas/PriceType" }
+        price: { $ref: "#/components/schemas/Money" }
+        imageUrl: { type: string }
+
+    PublicServiceDetail:
+      allOf:
+        - $ref: "#/components/schemas/PublicServiceSummary"
+        - type: object
+          properties:
+            description: { type: string }
+            addOns:
+              type: array
+              items: { $ref: "#/components/schemas/PublicAddOn" }
+
+    PublicAddOn:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        addedDurationMinutes: { type: integer }
+        price: { $ref: "#/components/schemas/Money" }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    OwnerMe:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        lastLoginAt: { type: string, format: date-time }
+
+    AdminCategory:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        displayOrder: { type: integer }
+        status: { $ref: "#/components/schemas/ServiceStatus" }
+        version: { type: integer, format: int64 }
+
+    CategoryWrite:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string }
+        version:
+          type: integer
+          format: int64
+          description: Required on edit for optimistic locking.
+
+    AdminService:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        categoryId: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        durationMinutes: { type: integer }
+        priceType: { $ref: "#/components/schemas/PriceType" }
+        priceCents: { type: integer }
+        onlineBookable: { type: boolean }
+        hiddenFromNewClients: { type: boolean }
+        imageId: { type: string, format: uuid }
+        displayOrder: { type: integer }
+        status: { $ref: "#/components/schemas/ServiceStatus" }
+        version: { type: integer, format: int64 }
+        addOns:
+          type: array
+          items: { $ref: "#/components/schemas/AdminAddOn" }
+
+    ServiceWrite:
+      type: object
+      required: [categoryId, name, durationMinutes, priceType]
+      properties:
+        categoryId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string }
+        durationMinutes:
+          type: integer
+          minimum: 1
+          description: Positive; recommended 15-minute increments.
+        priceType: { $ref: "#/components/schemas/PriceType" }
+        priceCents:
+          type: integer
+          minimum: 0
+          description: 0 for FREE; > 0 for FIXED/STARTING_AT.
+        onlineBookable: { type: boolean, default: true }
+        hiddenFromNewClients: { type: boolean, default: false }
+        imageId: { type: string, format: uuid }
+        version: { type: integer, format: int64 }
+
+    AdminServicePage:
+      type: object
+      properties:
+        content:
+          type: array
+          items: { $ref: "#/components/schemas/AdminService" }
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+
+    AdminAddOn:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        serviceId: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        addedDurationMinutes: { type: integer }
+        priceCents: { type: integer }
+        displayOrder: { type: integer }
+        status: { $ref: "#/components/schemas/AddOnStatus" }
+        version: { type: integer, format: int64 }
+
+    AddOnWrite:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        description: { type: string }
+        addedDurationMinutes: { type: integer, minimum: 0, default: 0 }
+        priceCents: { type: integer, minimum: 0, default: 0 }
+        version: { type: integer, format: int64 }
+
+    AdminMedia:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string }
+        contentType: { type: string }
+        fileSize: { type: integer, format: int64 }
+        width: { type: integer }
+        height: { type: integer }
+        altText: { type: string }
+
+    StatusChange:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: Target status (e.g. ACTIVE, ARCHIVED).
+
+    ReorderRequest:
+      type: object
+      required: [orderedIds]
+      properties:
+        orderedIds:
+          type: array
+          items: { type: string, format: uuid }
+          description: Resource ids in the desired display order.

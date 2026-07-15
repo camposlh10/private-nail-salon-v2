@@ -25,5 +25,8 @@ jobs:
           cache: maven
           cache-dependency-path: backend/pom.xml
 
+      # No global profile: H2-backed tests declare @ActiveProfiles("test") themselves,
+      # while the Testcontainers migration test runs against real PostgreSQL (Docker is
+      # available on ubuntu-latest runners).
       - name: Verify
-        run: ./mvnw -B -ntp "-Dspring.profiles.active=test" verify
+        run: ./mvnw -B -ntp verify
