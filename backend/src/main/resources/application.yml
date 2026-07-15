@@ -1,0 +1,69 @@
+spring:
+  application:
+    name: nail-salon-backend
+  profiles:
+    # Default to dev (local PostgreSQL via docker-compose). Activate other
+    # profiles with -Dspring-boot.run.profiles=prod, or SPRING_PROFILES_ACTIVE=test in CI.
+    default: dev
+
+server:
+  port: ${PORT:8092}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+---
+# --- dev profile: local PostgreSQL started via `docker compose up -d` (see docker-compose.yml) ---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:${DB_PORT:5433}/nailsalon
+    username: ${DB_USER:nailsalon}
+    password: ${DB_PASSWORD:nailsalon}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+---
+# --- test profile: in-memory H2 in PostgreSQL-compatibility mode, no external services required ---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:h2:mem:nailsalon-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+---
+# --- prod profile: PostgreSQL configured entirely via environment variables (set by the hosting platform) ---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+management:
+  endpoint:
+    health:
+      show-details: never

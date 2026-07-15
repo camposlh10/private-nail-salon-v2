@@ -1,0 +1,23 @@
+# Local PostgreSQL for the `dev` Spring profile (the default). Start with: docker compose up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nailsalon-postgres
+    environment:
+      POSTGRES_DB: nailsalon
+      POSTGRES_USER: nailsalon
+      POSTGRES_PASSWORD: nailsalon
+    ports:
+      # Host port 5433 (not the default 5432) so this doesn't clash with another
+      # local Postgres container/install running on the standard port.
+      - "5433:5432"
+    volumes:
+      - nailsalon-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nailsalon -d nailsalon"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  nailsalon-pgdata:
