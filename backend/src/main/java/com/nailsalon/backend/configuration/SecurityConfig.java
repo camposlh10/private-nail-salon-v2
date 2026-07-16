@@ -52,8 +52,11 @@ public class SecurityConfig {
 						.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 						.csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
 						// Provider webhooks authenticate with signatures, not sessions —
-						// CSRF does not apply to them.
-						.ignoringRequestMatchers("/api/v1/webhooks/**"))
+						// CSRF does not apply to them. Public booking endpoints are
+						// anonymous (no Spring session to bind a CSRF token to); the
+						// verified-phone cookie they use is HttpOnly + SameSite=Lax and
+						// all mutations are JSON-only, which cross-site forms can't send.
+						.ignoringRequestMatchers("/api/v1/webhooks/**", "/api/v1/public/**"))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(
 								"/api/v1/public/**",

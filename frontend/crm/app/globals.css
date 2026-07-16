@@ -310,3 +310,54 @@ input[type="checkbox"] {
     padding: 1.25rem 1rem;
   }
 }
+
+/* --- calendar ------------------------------------------------------------- */
+
+.calendar-week {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.calendar-day {
+  padding: 0.75rem;
+  min-height: 90px;
+}
+
+.calendar-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.calendar-item:hover {
+  background: #e0e7ff;
+}
+
+.calendar-day label,
+.card form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.card form input,
+.card form select,
+.card form textarea {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--ink);
+}

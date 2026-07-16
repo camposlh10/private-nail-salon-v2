@@ -71,7 +71,7 @@ public class PublicCatalogService {
 				.filter(s -> activeCategorySlugs.containsKey(s.getCategoryId()))
 				.filter(s -> categorySlug == null || categorySlug.equals(activeCategorySlugs.get(s.getCategoryId())))
 				.filter(s -> matches(s, query))
-				.map(s -> new PublicServiceSummary(s.getSlug(), s.getName(),
+				.map(s -> new PublicServiceSummary(s.getId(), s.getSlug(), s.getName(),
 						activeCategorySlugs.get(s.getCategoryId()), s.getDurationMinutes(), s.getPriceType(),
 						new Money(s.getPriceCents(), currency), imageUrl(s)))
 				.toList();
@@ -90,13 +90,13 @@ public class PublicCatalogService {
 		List<PublicAddOn> activeAddOns = addOns
 				.findByServiceIdAndStatusOrderByDisplayOrderAscNameAsc(s.getId(), AddOnStatus.ACTIVE)
 				.stream()
-				.map(a -> new PublicAddOn(a.getName(), a.getDescription(), a.getAddedDurationMinutes(),
-						new Money(a.getPriceCents(), currency)))
+				.map(a -> new PublicAddOn(a.getId(), a.getName(), a.getDescription(),
+						a.getAddedDurationMinutes(), new Money(a.getPriceCents(), currency)))
 				.toList();
 
-		return new PublicServiceDetail(s.getSlug(), s.getName(), category.getSlug(), s.getDurationMinutes(),
-				s.getPriceType(), new Money(s.getPriceCents(), currency), imageUrl(s), s.getDescription(),
-				activeAddOns);
+		return new PublicServiceDetail(s.getId(), s.getSlug(), s.getName(), category.getSlug(),
+				s.getDurationMinutes(), s.getPriceType(), new Money(s.getPriceCents(), currency), imageUrl(s),
+				s.getDescription(), activeAddOns);
 	}
 
 	private List<ServiceCategory> activeCategories() {

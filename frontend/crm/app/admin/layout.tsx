@@ -55,6 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           Salon CRM
         </Link>
         <nav>
+          <Link href="/admin/calendar">Calendar</Link>
           <Link href="/admin/services">Services</Link>
           <Link href="/admin/categories">Categories</Link>
           <Link href="/admin/settings/business">Settings</Link>

@@ -225,3 +225,93 @@ button:hover,
     min-width: 0;
   }
 }
+
+/* --- booking flow ------------------------------------------------------- */
+
+.slot-day {
+  margin: 1.25rem 0;
+}
+
+.slot-day h2 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.slot-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.slot {
+  background: var(--card);
+  border: 1px solid var(--accent);
+  color: var(--accent-dark);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.slot:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.slot:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.booking-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 460px;
+}
+
+.booking-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.booking-form input,
+.booking-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--ink);
+}
+
+.booking-form input:focus,
+.booking-form textarea:focus {
+  outline: 2px solid var(--accent);
+  border-color: transparent;
+}
+
+.booking-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+  padding-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.linklike {
+  background: none;
+  border: none;
+  color: var(--accent-dark);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9rem;
+  align-self: flex-start;
+  padding: 0;
+}

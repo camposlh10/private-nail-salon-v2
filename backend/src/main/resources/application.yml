@@ -7,6 +7,12 @@ spring:
     default: dev
   jpa:
     open-in-view: false
+  flyway:
+    # Shared migrations plus vendor-specific ones ({vendor} => postgresql | h2).
+    # PostgreSQL gets the GiST appointment-overlap exclusion constraint; H2 (tests)
+    # gets a documented no-op at the same version. db/vendor sits OUTSIDE db/migration
+    # because Flyway scans locations recursively.
+    locations: classpath:db/migration,classpath:db/vendor/{vendor}
   servlet:
     multipart:
       # Container hard limit slightly above the 5MB application-level image cap so
@@ -28,6 +34,21 @@ app:
   cors:
     # Next.js dev servers: booking site (3000) and owner CRM (3001).
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
+  booking:
+    # Earliest bookable start = now + min-notice; latest = today + horizon-days.
+    min-notice-minutes: 120
+    horizon-days: 60
+    slot-grid-minutes: 15
+    hold-minutes: 10
+    # Verified-phone session lifetime (single-use).
+    verified-session-minutes: 30
+  outbox:
+    # The background sender polls PENDING rows; disabled in tests (worker is invoked
+    # directly there for determinism).
+    enabled: true
+    poll-ms: 5000
+    max-attempts: 5
+    base-backoff-seconds: 30
   media:
     # Local-disk image storage; swap for object storage (S3 etc.) before real deployment.
     local-dir: ${APP_MEDIA_DIR:./data/media}
@@ -95,6 +116,9 @@ app:
     local-dir: ./target/test-media
   webhooks:
     shared-secret: test-webhook-secret
+  outbox:
+    # Tests drive the worker directly; no background polling.
+    enabled: false
 
 ---
 # --- prod profile: PostgreSQL configured entirely via environment variables (set by the hosting platform) ---

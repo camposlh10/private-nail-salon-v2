@@ -27,6 +27,7 @@ export interface PublicCategory {
 }
 
 export interface PublicServiceSummary {
+  id: string;
   slug: string;
   name: string;
   categorySlug: string;
@@ -37,6 +38,7 @@ export interface PublicServiceSummary {
 }
 
 export interface PublicAddOn {
+  id: string;
   name: string;
   description: string | null;
   addedDurationMinutes: number;
@@ -97,4 +99,137 @@ export function formatDuration(minutes: number): string {
   const m = minutes % 60;
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} hr` : `${h} hr ${m} min`;
+}
+
+// --- booking flow (client-side; same-origin /api rewrite carries cookies) ---------
+
+export interface AvailabilityDay {
+  date: string;
+  slots: string[]; // RFC 3339 with the salon's timezone offset
+}
+
+export interface AvailabilityResponse {
+  serviceId: string;
+  durationMinutes: number;
+  timezone: string;
+  days: AvailabilityDay[];
+}
+
+export interface SlotHold {
+  id: string;
+  serviceId: string;
+  addOnIds: string[];
+  start: string;
+  end: string;
+  expiresAt: string;
+}
+
+export interface BookedItem {
+  itemType: "SERVICE" | "ADD_ON";
+  name: string;
+  durationMinutes: number;
+  priceCents: number;
+}
+
+export interface BookedAppointment {
+  id: string;
+  status: string;
+  start: string;
+  end: string;
+  timezone: string;
+  serviceName: string;
+  items: BookedItem[];
+  totalCents: number;
+  currency: string;
+}
+
+export class BookingApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+async function clientApi<T>(
+  path: string,
+  options: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
+): Promise<T> {
+  const headers: Record<string, string> = { ...(options.headers ?? {}) };
+  let body: BodyInit | undefined;
+  if (options.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(options.body);
+  }
+  const res = await fetch(path, {
+    method: options.method ?? "GET",
+    headers,
+    body,
+    credentials: "include",
+  });
+  if (res.status === 204) return undefined as T;
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : undefined;
+  if (!res.ok) {
+    throw new BookingApiError(res.status, data?.code ?? "ERROR", data?.detail ?? res.statusText);
+  }
+  return data as T;
+}
+
+export function getAvailability(serviceId: string, addOnIds: string[], from: string, to: string) {
+  const params = new URLSearchParams({ serviceId, from, to });
+  if (addOnIds.length > 0) params.set("addOnIds", addOnIds.join(","));
+  return clientApi<AvailabilityResponse>(`/api/v1/public/availability?${params}`);
+}
+
+export function createSlotHold(serviceId: string, addOnIds: string[], start: string) {
+  return clientApi<SlotHold>("/api/v1/public/slot-holds", {
+    method: "POST",
+    body: { serviceId, addOnIds, start },
+  });
+}
+
+export function releaseSlotHold(id: string) {
+  return clientApi<void>(`/api/v1/public/slot-holds/${id}`, { method: "DELETE" });
+}
+
+export function startPhoneVerification(phone: string) {
+  return clientApi<void>("/api/v1/public/auth/phone/start", { method: "POST", body: { phone } });
+}
+
+export function checkPhoneVerification(phone: string, code: string, slotHoldId?: string) {
+  return clientApi<{ expiresAt: string }>("/api/v1/public/auth/phone/check", {
+    method: "POST",
+    body: { phone, code, slotHoldId },
+  });
+}
+
+export function confirmAppointment(
+  body: { slotHoldId: string; clientName: string; clientEmail?: string; notes?: string },
+  idempotencyKey: string,
+) {
+  return clientApi<BookedAppointment>("/api/v1/public/appointments", {
+    method: "POST",
+    body,
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
+}
+
+export function formatCents(cents: number, currency = "USD"): string {
+  return (cents / 100).toLocaleString("en-US", { style: "currency", currency });
+}
+
+export function formatSlot(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+export function formatDay(dateIso: string): string {
+  // Anchor to noon so the label never shifts a day in the viewer's timezone.
+  return new Date(`${dateIso}T12:00:00`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }

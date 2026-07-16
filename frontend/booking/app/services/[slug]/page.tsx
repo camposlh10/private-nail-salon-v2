@@ -56,7 +56,7 @@ export default async function ServiceDetailPage({ params }: Props) {
         )}
 
         <p style={{ marginTop: "1.25rem" }}>
-          <Link href={`/book?service=${encodeURIComponent(service.slug)}`} className="button">
+          <Link href={`/book/${encodeURIComponent(service.slug)}`} className="button">
             Book this service
           </Link>
         </p>

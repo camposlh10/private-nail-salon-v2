@@ -242,3 +242,104 @@ export const publicBusiness = () => api<PublicBusiness>("/api/v1/public/business
 
 export const formatCents = (cents: number) =>
   (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+// --- appointments (owner calendar) ---------------------------------------------
+
+export type AppointmentStatus =
+  | "CONFIRMED"
+  | "CHECKED_IN"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED_BY_CLIENT"
+  | "CANCELLED_BY_OWNER"
+  | "NO_SHOW";
+
+export interface AdminClient {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+}
+
+export interface AdminAppointment {
+  id: string;
+  status: AppointmentStatus;
+  start: string;
+  end: string;
+  timezone: string;
+  serviceName: string;
+  client: AdminClient | null;
+  totalCents: number;
+}
+
+export interface AppointmentItem {
+  itemType: "SERVICE" | "ADD_ON";
+  name: string;
+  durationMinutes: number;
+  priceCents: number;
+}
+
+export interface AppointmentEvent {
+  eventType: string;
+  actor: string;
+  detail: string | null;
+  occurredAt: string;
+}
+
+export interface AdminAppointmentDetail extends AdminAppointment {
+  notes: string | null;
+  actualStart: string | null;
+  actualEnd: string | null;
+  items: AppointmentItem[];
+  events: AppointmentEvent[];
+}
+
+export interface AdminAppointmentCreate {
+  serviceId: string;
+  addOnIds?: string[];
+  start: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string;
+  notes?: string;
+}
+
+/** Legal owner status moves, mirroring the backend transition table. */
+export const APPOINTMENT_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
+  CONFIRMED: ["CHECKED_IN", "IN_PROGRESS", "CANCELLED_BY_CLIENT", "CANCELLED_BY_OWNER", "NO_SHOW"],
+  CHECKED_IN: ["IN_PROGRESS", "COMPLETED", "CANCELLED_BY_CLIENT", "CANCELLED_BY_OWNER", "NO_SHOW"],
+  IN_PROGRESS: ["COMPLETED", "CANCELLED_BY_OWNER"],
+  COMPLETED: [],
+  CANCELLED_BY_CLIENT: [],
+  CANCELLED_BY_OWNER: [],
+  NO_SHOW: [],
+};
+
+export const listAppointments = (from: string, to: string) =>
+  api<AdminAppointment[]>(`/api/v1/admin/appointments?from=${from}&to=${to}`);
+
+export const getAppointment = (id: string) =>
+  api<AdminAppointmentDetail>(`/api/v1/admin/appointments/${id}`);
+
+export const createAppointment = (body: AdminAppointmentCreate) =>
+  api<AdminAppointmentDetail>("/api/v1/admin/appointments", { method: "POST", body });
+
+export const changeAppointmentStatus = (id: string, status: AppointmentStatus) =>
+  api<AdminAppointmentDetail>(`/api/v1/admin/appointments/${id}/status`, {
+    method: "PATCH",
+    body: { status },
+  });
+
+/** Public availability, reused so owner-created appointments offer only valid slots. */
+export interface AvailabilityDay {
+  date: string;
+  slots: string[];
+}
+
+export const getAvailability = (serviceId: string, addOnIds: string[], from: string, to: string) => {
+  const params = new URLSearchParams({ serviceId, from, to });
+  if (addOnIds.length > 0) params.set("addOnIds", addOnIds.join(","));
+  return api<{ days: AvailabilityDay[]; timezone: string }>(
+    `/api/v1/public/availability?${params}`,
+  );
+};

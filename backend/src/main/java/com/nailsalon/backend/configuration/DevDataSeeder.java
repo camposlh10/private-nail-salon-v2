@@ -41,16 +41,20 @@ public class DevDataSeeder implements ApplicationRunner {
 	private final ServiceCategoryRepository categories;
 	private final SalonServiceRepository services;
 	private final ServiceAddOnRepository addOns;
+	private final com.nailsalon.backend.booking.infrastructure.WeeklyAvailabilityRepository weeklyAvailability;
 	private final PasswordEncoder passwordEncoder;
 
 	public DevDataSeeder(BusinessProfileRepository businesses, OwnerUserRepository owners,
 			ServiceCategoryRepository categories, SalonServiceRepository services,
-			ServiceAddOnRepository addOns, PasswordEncoder passwordEncoder) {
+			ServiceAddOnRepository addOns,
+			com.nailsalon.backend.booking.infrastructure.WeeklyAvailabilityRepository weeklyAvailability,
+			PasswordEncoder passwordEncoder) {
 		this.businesses = businesses;
 		this.owners = owners;
 		this.categories = categories;
 		this.services = services;
 		this.addOns = addOns;
+		this.weeklyAvailability = weeklyAvailability;
 		this.passwordEncoder = passwordEncoder;
 	}
 
@@ -63,6 +67,23 @@ public class DevDataSeeder implements ApplicationRunner {
 		}
 		if (categories.count() == 0) {
 			seedCatalog(business);
+		}
+		if (weeklyAvailability.count() == 0) {
+			seedWeeklyHours();
+		}
+	}
+
+	/** Default opening hours (Tue-Sat 09:00-17:00) so dev booking works immediately. */
+	private void seedWeeklyHours() {
+		for (java.time.DayOfWeek day : java.util.List.of(java.time.DayOfWeek.TUESDAY,
+				java.time.DayOfWeek.WEDNESDAY, java.time.DayOfWeek.THURSDAY, java.time.DayOfWeek.FRIDAY,
+				java.time.DayOfWeek.SATURDAY)) {
+			com.nailsalon.backend.booking.domain.WeeklyAvailability row =
+					new com.nailsalon.backend.booking.domain.WeeklyAvailability();
+			row.setDayOfWeek(day);
+			row.setStartTime(java.time.LocalTime.of(9, 0));
+			row.setEndTime(java.time.LocalTime.of(17, 0));
+			weeklyAvailability.save(row);
 		}
 	}
 

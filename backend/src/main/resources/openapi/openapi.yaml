@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Private Nail Salon API
-  version: 0.2.0-M2
+  version: 0.3.0-M3
   description: >
     Contract-first API for the single-tenant nail salon. Two audiences:
     a public, anonymous booking site (`/api/v1/public/**`) and an authenticated
@@ -15,11 +15,15 @@ servers:
 
 tags:
   - name: public-catalog
+  - name: public-availability
+  - name: public-booking
   - name: admin-auth
   - name: admin-categories
   - name: admin-services
   - name: admin-addons
   - name: admin-media
+  - name: admin-schedule
+  - name: admin-appointments
 
 paths:
   # ------------------------------------------------------------------ public
@@ -92,6 +96,177 @@ paths:
               schema: { $ref: "#/components/schemas/PublicServiceDetail" }
         "404":
           $ref: "#/components/responses/Problem"
+
+  # ------------------------------------------------------ public availability
+  /api/v1/public/availability:
+    get:
+      tags: [public-availability]
+      summary: Bookable start times for a service (+ optional add-ons) over a date range
+      description: >
+        Start times are generated on a 15-minute grid inside the salon's weekly hours
+        (or a date override), after applying minimum notice, the booking horizon,
+        blocked time, confirmed appointments and unexpired slot holds. Intervals are
+        half-open `[start, end)` so back-to-back appointments never conflict. The
+        backend is authoritative — clients must never compute availability themselves.
+      security: []
+      parameters:
+        - name: serviceId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: addOnIds
+          in: query
+          required: false
+          style: form
+          explode: false
+          schema:
+            type: array
+            items: { type: string, format: uuid }
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+          description: Inclusive end date; the range is clamped to the booking horizon.
+      responses:
+        "200":
+          description: Days with bookable start times (business timezone offsets)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AvailabilityResponse" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  # ----------------------------------------------------------- public booking
+  /api/v1/public/slot-holds:
+    post:
+      tags: [public-booking]
+      summary: Atomically reserve a start time for 10 minutes
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SlotHoldCreate" }
+      responses:
+        "201":
+          description: Hold created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SlotHold" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409":
+          description: The slot is no longer available
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/ProblemDetail" }
+
+  /api/v1/public/slot-holds/{id}:
+    delete:
+      tags: [public-booking]
+      summary: Release a hold early (e.g. the customer navigated away)
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IdPath"
+      responses:
+        "204": { description: Released (idempotent) }
+
+  /api/v1/public/auth/phone/start:
+    post:
+      tags: [public-booking]
+      summary: Send a one-time code to the customer's phone
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  description: E.164, e.g. +15550100200
+      responses:
+        "202": { description: Verification started }
+        "400": { $ref: "#/components/responses/Problem" }
+        "429": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/public/auth/phone/check:
+    post:
+      tags: [public-booking]
+      summary: Verify the code and mint a short-lived verified-phone session
+      description: >
+        On success the response sets an HttpOnly cookie holding an opaque session
+        token (the server stores only a hash). The session is bound to the verified
+        phone and, optionally, to a slot hold; it is single-use and expires.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { type: string }
+                code: { type: string }
+                slotHoldId:
+                  type: string
+                  format: uuid
+                  description: Optional hold to bind the session to.
+      responses:
+        "200":
+          description: Phone verified; session cookie set
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expiresAt: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/public/appointments:
+    post:
+      tags: [public-booking]
+      summary: Confirm the booking (consumes the hold and the verified session)
+      description: >
+        Requires the verified-phone session cookie. Everything — client
+        create-or-match, appointment, immutable item snapshots, APPOINTMENT_CREATED
+        event, hold/session consumption, email + SMS outbox rows — commits in one
+        transaction. Retrying with the same `Idempotency-Key` returns the original
+        appointment instead of creating a duplicate.
+      security: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 80 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AppointmentCreate" }
+      responses:
+        "201":
+          description: Appointment confirmed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicAppointment" }
+        "200":
+          description: Idempotent replay of a previously confirmed appointment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicAppointment" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
 
   # -------------------------------------------------------------- admin auth
   /api/v1/admin/auth/login:
@@ -457,6 +632,206 @@ paths:
         "204": { description: Deleted }
         "409": { $ref: "#/components/responses/Problem" }
 
+  # ----------------------------------------------------------- admin schedule
+  /api/v1/admin/schedule/weekly:
+    get:
+      tags: [admin-schedule]
+      summary: Weekly opening hours
+      responses:
+        "200":
+          description: Weekly schedule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeeklySchedule" }
+    put:
+      tags: [admin-schedule]
+      summary: Replace the weekly opening hours
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WeeklySchedule" }
+      responses:
+        "200":
+          description: Saved schedule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WeeklySchedule" }
+        "400": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/schedule/overrides:
+    get:
+      tags: [admin-schedule]
+      summary: Date overrides (closures and special hours)
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Overrides
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminOverride" }
+    post:
+      tags: [admin-schedule]
+      summary: Close a date or give it special hours (replaces weekly hours that day)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OverrideWrite" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOverride" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/schedule/overrides/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    delete:
+      tags: [admin-schedule]
+      summary: Remove a date override
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/schedule/blocks:
+    get:
+      tags: [admin-schedule]
+      summary: Blocked time (breaks, personal time)
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Blocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminBlock" }
+    post:
+      tags: [admin-schedule]
+      summary: Block a time range from online booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BlockWrite" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminBlock" }
+        "400": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/schedule/blocks/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    delete:
+      tags: [admin-schedule]
+      summary: Remove a time block
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  # ------------------------------------------------------- admin appointments
+  /api/v1/admin/appointments:
+    get:
+      tags: [admin-appointments]
+      summary: Appointments overlapping a date range (calendar feed)
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+          description: Inclusive end date in the business timezone.
+      responses:
+        "200":
+          description: Appointments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AdminAppointment" }
+    post:
+      tags: [admin-appointments]
+      summary: Owner-created appointment (same availability and overlap rules as public)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminAppointmentCreate" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAppointmentDetail" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/appointments/{id}:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    get:
+      tags: [admin-appointments]
+      summary: Appointment with client, item snapshots and event history
+      responses:
+        "200":
+          description: Appointment detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAppointmentDetail" }
+        "404": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/admin/appointments/{id}/status:
+    parameters:
+      - $ref: "#/components/parameters/IdPath"
+    patch:
+      tags: [admin-appointments]
+      summary: Change appointment status (check in, start, complete, cancel, no-show)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/AppointmentStatus" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminAppointmentDetail" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+
 components:
   securitySchemes:
     ownerSession:
@@ -543,6 +918,7 @@ components:
     PublicServiceSummary:
       type: object
       properties:
+        id: { type: string, format: uuid }
         slug: { type: string }
         name: { type: string }
         categorySlug: { type: string }
@@ -564,6 +940,7 @@ components:
     PublicAddOn:
       type: object
       properties:
+        id: { type: string, format: uuid }
         name: { type: string }
         description: { type: string }
         addedDurationMinutes: { type: integer }
@@ -708,3 +1085,212 @@ components:
           type: array
           items: { type: string, format: uuid }
           description: Resource ids in the desired display order.
+
+    # ------------------------------------------------------- booking (M3)
+    AppointmentStatus:
+      type: string
+      enum:
+        - CONFIRMED
+        - CHECKED_IN
+        - IN_PROGRESS
+        - COMPLETED
+        - CANCELLED_BY_CLIENT
+        - CANCELLED_BY_OWNER
+        - NO_SHOW
+
+    AvailabilityResponse:
+      type: object
+      properties:
+        serviceId: { type: string, format: uuid }
+        durationMinutes:
+          type: integer
+          description: Total duration (service + selected add-ons) the slots were computed for.
+        timezone: { type: string, examples: ["America/New_York"] }
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/AvailabilityDay" }
+
+    AvailabilityDay:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        slots:
+          type: array
+          description: Bookable start times, RFC 3339 with the business timezone's offset.
+          items: { type: string, format: date-time }
+
+    SlotHoldCreate:
+      type: object
+      required: [serviceId, start]
+      properties:
+        serviceId: { type: string, format: uuid }
+        addOnIds:
+          type: array
+          items: { type: string, format: uuid }
+        start:
+          type: string
+          format: date-time
+          description: A start time previously returned by the availability endpoint.
+
+    SlotHold:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        serviceId: { type: string, format: uuid }
+        addOnIds:
+          type: array
+          items: { type: string, format: uuid }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+
+    AppointmentCreate:
+      type: object
+      required: [slotHoldId, clientName]
+      properties:
+        slotHoldId: { type: string, format: uuid }
+        clientName: { type: string, minLength: 1, maxLength: 200 }
+        clientEmail: { type: string, format: email }
+        notes: { type: string, maxLength: 2000 }
+
+    PublicAppointment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/AppointmentStatus" }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        timezone: { type: string }
+        serviceName: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AppointmentItem" }
+        totalCents: { type: integer }
+        currency: { type: string }
+
+    AppointmentItem:
+      type: object
+      description: Immutable snapshot taken at booking time; later catalog edits never change it.
+      properties:
+        itemType:
+          type: string
+          enum: [SERVICE, ADD_ON]
+        name: { type: string }
+        durationMinutes: { type: integer }
+        priceCents: { type: integer }
+
+    WeeklySchedule:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/WeeklyInterval" }
+
+    WeeklyInterval:
+      type: object
+      required: [dayOfWeek, startTime, endTime]
+      properties:
+        dayOfWeek:
+          type: string
+          enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+        startTime: { type: string, format: time, examples: ["09:00"] }
+        endTime:
+          type: string
+          format: time
+          examples: ["17:00"]
+          description: Exclusive end — a 09:00–17:00 day admits a 16:00 60-minute booking.
+
+    OverrideWrite:
+      type: object
+      required: [date, closed]
+      properties:
+        date: { type: string, format: date }
+        closed: { type: boolean }
+        startTime:
+          type: string
+          format: time
+          description: Required when closed=false; replaces weekly hours that day.
+        endTime: { type: string, format: time }
+        reason: { type: string, maxLength: 500 }
+
+    AdminOverride:
+      allOf:
+        - $ref: "#/components/schemas/OverrideWrite"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+
+    BlockWrite:
+      type: object
+      required: [start, end]
+      properties:
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        reason: { type: string, maxLength: 500 }
+
+    AdminBlock:
+      allOf:
+        - $ref: "#/components/schemas/BlockWrite"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+
+    AdminClient:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        phone: { type: string }
+        email: { type: string }
+
+    AdminAppointment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/AppointmentStatus" }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        timezone: { type: string }
+        serviceName: { type: string }
+        client: { $ref: "#/components/schemas/AdminClient" }
+        totalCents: { type: integer }
+
+    AdminAppointmentDetail:
+      allOf:
+        - $ref: "#/components/schemas/AdminAppointment"
+        - type: object
+          properties:
+            notes: { type: string }
+            actualStart: { type: string, format: date-time }
+            actualEnd: { type: string, format: date-time }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/AppointmentItem" }
+            events:
+              type: array
+              items: { $ref: "#/components/schemas/AppointmentEvent" }
+
+    AppointmentEvent:
+      type: object
+      properties:
+        eventType: { type: string, examples: ["APPOINTMENT_CREATED"] }
+        actor:
+          type: string
+          enum: [CLIENT, OWNER, SYSTEM]
+        detail: { type: string }
+        occurredAt: { type: string, format: date-time }
+
+    AdminAppointmentCreate:
+      type: object
+      required: [serviceId, start, clientName, clientPhone]
+      properties:
+        serviceId: { type: string, format: uuid }
+        addOnIds:
+          type: array
+          items: { type: string, format: uuid }
+        start: { type: string, format: date-time }
+        clientName: { type: string, minLength: 1, maxLength: 200 }
+        clientPhone: { type: string, description: E.164 }
+        clientEmail: { type: string, format: email }
+        notes: { type: string, maxLength: 2000 }
