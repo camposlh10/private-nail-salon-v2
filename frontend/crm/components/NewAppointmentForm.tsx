@@ -12,6 +12,7 @@ import {
 interface Props {
   onClose: () => void;
   onCreated: () => void;
+  defaultDate?: string;
 }
 
 function todayIso(): string {
@@ -24,11 +25,11 @@ function todayIso(): string {
  * public site uses, so owner bookings obey identical rules (the backend re-checks
  * regardless — this just avoids offering times that will be rejected).
  */
-export default function NewAppointmentForm({ onClose, onCreated }: Props) {
+export default function NewAppointmentForm({ onClose, onCreated, defaultDate }: Props) {
   const [services, setServices] = useState<AdminService[]>([]);
   const [serviceId, setServiceId] = useState("");
   const [addOnIds, setAddOnIds] = useState<Set<string>>(new Set());
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(defaultDate ?? todayIso());
   const [slots, setSlots] = useState<string[]>([]);
   const [slot, setSlot] = useState("");
   const [clientName, setClientName] = useState("");
@@ -100,16 +101,17 @@ export default function NewAppointmentForm({ onClose, onCreated }: Props) {
   };
 
   return (
-    <div className="card" style={{ marginTop: "1rem" }}>
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <h2>New appointment</h2>
-        <button className="button secondary" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-      {error && <div className="error">{error}</div>}
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <h2>New appointment</h2>
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
+        {error && <div className="error">{error}</div>}
 
-      <form onSubmit={submit} className="row" style={{ flexDirection: "column", gap: "0.7rem" }}>
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
         <label>
           Service
           <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
@@ -179,10 +181,11 @@ export default function NewAppointmentForm({ onClose, onCreated }: Props) {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} maxLength={2000} />
         </label>
 
-        <button className="button" disabled={submitting || !slot}>
-          {submitting ? "Creating…" : "Create appointment"}
-        </button>
-      </form>
+          <button className="button" style={{ marginTop: "0.5rem" }} disabled={submitting || !slot}>
+            {submitting ? "Creating…" : "Create appointment"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

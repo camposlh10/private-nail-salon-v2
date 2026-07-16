@@ -5,26 +5,27 @@ import {
   AdminAppointment,
   AdminAppointmentDetail,
   ApiError,
-  APPOINTMENT_TRANSITIONS,
   AppointmentStatus,
   changeAppointmentStatus,
-  formatCents,
   getAppointment,
   listAppointments,
 } from "@/lib/api";
+import MiniCalendar from "@/components/MiniCalendar";
+import TimeGrid from "@/components/TimeGrid";
+import AppointmentDrawer from "@/components/AppointmentDrawer";
 import NewAppointmentForm from "@/components/NewAppointmentForm";
 
 type View = "day" | "week";
 
 function isoDate(d: Date): string {
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
 function startOfWeek(d: Date): Date {
   const copy = new Date(d);
   const day = (copy.getDay() + 6) % 7; // Monday = 0
   copy.setDate(copy.getDate() - day);
+  copy.setHours(0, 0, 0, 0);
   return copy;
 }
 
@@ -34,15 +35,13 @@ function addDays(d: Date, days: number): Date {
   return copy;
 }
 
-const STATUS_LABELS: Record<AppointmentStatus, string> = {
-  CONFIRMED: "Confirmed",
-  CHECKED_IN: "Checked in",
-  IN_PROGRESS: "In progress",
-  COMPLETED: "Completed",
-  CANCELLED_BY_CLIENT: "Cancelled (client)",
-  CANCELLED_BY_OWNER: "Cancelled (owner)",
-  NO_SHOW: "No-show",
-};
+const LEGEND: { status: AppointmentStatus; label: string }[] = [
+  { status: "CONFIRMED", label: "Confirmed" },
+  { status: "CHECKED_IN", label: "Checked in" },
+  { status: "IN_PROGRESS", label: "In progress" },
+  { status: "COMPLETED", label: "Completed" },
+  { status: "NO_SHOW", label: "No-show" },
+];
 
 export default function CalendarPage() {
   const [view, setView] = useState<View>("week");
@@ -52,13 +51,16 @@ export default function CalendarPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const range = useMemo(() => {
-    if (view === "day") {
-      return { from: isoDate(anchor), to: isoDate(anchor) };
-    }
+  const days = useMemo(() => {
+    if (view === "day") return [new Date(anchor)];
     const monday = startOfWeek(anchor);
-    return { from: isoDate(monday), to: isoDate(addDays(monday, 6)) };
+    return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   }, [view, anchor]);
+
+  const range = useMemo(
+    () => ({ from: isoDate(days[0]), to: isoDate(days[days.length - 1]) }),
+    [days],
+  );
 
   const reload = useCallback(async () => {
     setError(null);
@@ -81,148 +83,81 @@ export default function CalendarPage() {
     }
   };
 
-  const transition = async (id: string, status: AppointmentStatus) => {
+  const transition = async (status: AppointmentStatus) => {
+    if (!selected) return;
     setError(null);
     try {
-      setSelected(await changeAppointmentStatus(id, status));
+      setSelected(await changeAppointmentStatus(selected.id, status));
       await reload();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Status change failed");
     }
   };
 
-  // Group by the salon-local date, which is the date part of the ISO string
-  // (the backend serializes starts with the business timezone offset).
-  const days = useMemo(() => {
-    const map = new Map<string, AdminAppointment[]>();
-    const dayCount = view === "day" ? 1 : 7;
-    const first = view === "day" ? anchor : startOfWeek(anchor);
-    for (let i = 0; i < dayCount; i++) {
-      map.set(isoDate(addDays(first, i)), []);
-    }
-    for (const a of appointments) {
-      const key = a.start.slice(0, 10);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(a);
-    }
-    return [...map.entries()];
-  }, [appointments, view, anchor]);
-
   const step = view === "day" ? 1 : 7;
+  const rangeLabel =
+    view === "day"
+      ? anchor.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+      : `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString(
+          "en-US",
+          { month: "short", day: "numeric" },
+        )}`;
 
   return (
     <>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+      <div className="cal-toolbar">
         <h1>Calendar</h1>
-        <button className="button" onClick={() => setCreating(true)}>
-          New appointment
+        <button className="icon-btn" onClick={() => setAnchor(addDays(anchor, -step))} aria-label="Previous">
+          ‹
         </button>
+        <button className="secondary small" onClick={() => setAnchor(new Date())}>
+          Today
+        </button>
+        <button className="icon-btn" onClick={() => setAnchor(addDays(anchor, step))} aria-label="Next">
+          ›
+        </button>
+        <strong style={{ marginLeft: "0.4rem" }}>{rangeLabel}</strong>
+        <span className="spacer" />
+        <div className="seg">
+          <button className={view === "day" ? "on" : ""} onClick={() => setView("day")}>
+            Day
+          </button>
+          <button className={view === "week" ? "on" : ""} onClick={() => setView("week")}>
+            Week
+          </button>
+        </div>
+        <button onClick={() => setCreating(true)}>+ New</button>
       </div>
 
       {error && <div className="error">{error}</div>}
 
-      <div className="row" style={{ alignItems: "center", gap: "0.5rem", margin: "0.75rem 0" }}>
-        <button className="button secondary" onClick={() => setAnchor(addDays(anchor, -step))}>
-          ←
-        </button>
-        <button className="button secondary" onClick={() => setAnchor(new Date())}>
-          Today
-        </button>
-        <button className="button secondary" onClick={() => setAnchor(addDays(anchor, step))}>
-          →
-        </button>
-        <strong style={{ marginLeft: "0.5rem" }}>
-          {range.from === range.to ? range.from : `${range.from} → ${range.to}`}
-        </strong>
-        <span style={{ flex: 1 }} />
-        <select value={view} onChange={(e) => setView(e.target.value as View)}>
-          <option value="day">Day</option>
-          <option value="week">Week</option>
-        </select>
-      </div>
-
-      <div className={view === "week" ? "calendar-week" : undefined}>
-        {days.map(([date, list]) => (
-          <div key={date} className="card calendar-day">
-            <div className="muted" style={{ marginBottom: "0.5rem", fontWeight: 600 }}>
-              {new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              })}
-            </div>
-            {list.length === 0 && <div className="muted">—</div>}
-            {list.map((a) => (
-              <button key={a.id} className="calendar-item" onClick={() => open(a.id)}>
-                <div style={{ fontWeight: 600 }}>
-                  {a.start.slice(11, 16)}–{a.end.slice(11, 16)} {a.serviceName}
-                </div>
-                <div className="muted">
-                  {a.client?.name ?? "?"} · {STATUS_LABELS[a.status]}
-                </div>
-              </button>
+      <div className="cal-layout">
+        <div>
+          <MiniCalendar selected={anchor} onSelect={(d) => setAnchor(d)} />
+          <div className="legend">
+            {LEGEND.map((l) => (
+              <span key={l.status}>
+                <span className={`dot st-${l.status}`} />
+                {l.label}
+              </span>
             ))}
           </div>
-        ))}
+        </div>
+
+        <TimeGrid days={days} appointments={appointments} onOpen={open} selectedId={selected?.id} />
       </div>
 
       {selected && (
-        <div className="card" style={{ marginTop: "1rem" }}>
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h2>
-              {selected.serviceName} — {selected.start.slice(0, 10)} {selected.start.slice(11, 16)}
-            </h2>
-            <button className="button secondary" onClick={() => setSelected(null)}>
-              Close
-            </button>
-          </div>
-          <p className="muted">
-            {STATUS_LABELS[selected.status]} · {formatCents(selected.totalCents)}
-            {selected.actualStart && <> · started {selected.actualStart.slice(11, 16)}</>}
-            {selected.actualEnd && <> · finished {selected.actualEnd.slice(11, 16)}</>}
-          </p>
-
-          {selected.client && (
-            <p style={{ margin: "0.5rem 0" }}>
-              <strong>{selected.client.name}</strong> · {selected.client.phone}
-              {selected.client.email && <> · {selected.client.email}</>}
-            </p>
-          )}
-          {selected.notes && <p className="muted">Notes: {selected.notes}</p>}
-
-          <h3 style={{ margin: "0.75rem 0 0.25rem" }}>Items</h3>
-          {selected.items.map((item, i) => (
-            <div key={i} className="row" style={{ justifyContent: "space-between" }}>
-              <span>
-                {item.name}
-                {item.durationMinutes > 0 && <span className="muted"> ({item.durationMinutes} min)</span>}
-              </span>
-              <span>{formatCents(item.priceCents)}</span>
-            </div>
-          ))}
-
-          {APPOINTMENT_TRANSITIONS[selected.status].length > 0 && (
-            <div className="row" style={{ gap: "0.5rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
-              {APPOINTMENT_TRANSITIONS[selected.status].map((next) => (
-                <button key={next} className="button secondary" onClick={() => transition(selected.id, next)}>
-                  {STATUS_LABELS[next]}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <h3 style={{ margin: "0.75rem 0 0.25rem" }}>History</h3>
-          {selected.events.map((event, i) => (
-            <div key={i} className="muted" style={{ fontSize: "0.85rem" }}>
-              {event.occurredAt.slice(0, 16).replace("T", " ")} · {event.eventType}
-              {event.detail && <> — {event.detail}</>} ({event.actor})
-            </div>
-          ))}
-        </div>
+        <AppointmentDrawer
+          appointment={selected}
+          onClose={() => setSelected(null)}
+          onTransition={transition}
+        />
       )}
 
       {creating && (
         <NewAppointmentForm
+          defaultDate={isoDate(anchor)}
           onClose={() => setCreating(false)}
           onCreated={async () => {
             setCreating(false);

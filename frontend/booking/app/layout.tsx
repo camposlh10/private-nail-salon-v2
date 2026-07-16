@@ -13,15 +13,28 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const name = business?.name ?? "Private Nail Studio";
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body>
         <header className="site-header">
           <div className="container">
             <Link href="/" className="brand">
+              <span className="brand-mark">✦</span>
               {name.split(" ")[0]} <span>{name.split(" ").slice(1).join(" ")}</span>
             </Link>
-            <nav>
+            <nav className="site-nav">
               <Link className="pill" href="/services">
                 Services
+              </Link>
+              <Link className="pill active" href="/services">
+                Book now
               </Link>
             </nav>
           </div>

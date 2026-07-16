@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "booking",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/booking", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "crm",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/crm", "run", "dev"],
+      "port": 3001
+    }
+  ]
+}

@@ -19,12 +19,17 @@ export default async function ServicesPage({ searchParams }: Props) {
 
   return (
     <>
-      <h1>Our services</h1>
-      {business.appointmentStartNotice && (
-        <div className="notice">{business.appointmentStartNotice}</div>
-      )}
+      <div className="section-head" style={{ marginTop: "1.5rem" }}>
+        <h1>Our services</h1>
+      </div>
 
-      <div className="filters">
+      <form className="search" action="/services" method="get">
+        {category && <input type="hidden" name="category" value={category} />}
+        <input type="search" name="q" placeholder="Search services…" defaultValue={q ?? ""} />
+        <button type="submit">Search</button>
+      </form>
+
+      <div className="chips">
         <Link className={`pill${!category ? " active" : ""}`} href="/services">
           All
         </Link>
@@ -37,11 +42,6 @@ export default async function ServicesPage({ searchParams }: Props) {
             {c.name}
           </Link>
         ))}
-        <form className="search" action="/services" method="get">
-          {category && <input type="hidden" name="category" value={category} />}
-          <input type="search" name="q" placeholder="Search services…" defaultValue={q ?? ""} />
-          <button type="submit">Search</button>
-        </form>
       </div>
 
       {services.length === 0 ? (
@@ -59,12 +59,17 @@ export default async function ServicesPage({ searchParams }: Props) {
               <div className="card-body">
                 <div className="card-title">{s.name}</div>
                 <div className="meta">{formatDuration(s.durationMinutes)}</div>
-                <div className="price">{formatPrice(s.priceType, s.price)}</div>
+                <div className="price-row">
+                  <span className="price">{formatPrice(s.priceType, s.price)}</span>
+                  <span className="tag">Book</span>
+                </div>
               </div>
             </Link>
           ))}
         </div>
       )}
+
+      {business.appointmentStartNotice && <div className="notice">{business.appointmentStartNotice}</div>}
     </>
   );
 }

@@ -1,3 +1,7 @@
+/* Owner CRM restyled to match the booking site's light neutral pink system.
+   The calendar section implements a scheduler UI: toolbar, mini month calendar,
+   and a week/day time grid with positioned appointment blocks. */
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -5,21 +9,35 @@
 }
 
 :root {
-  --bg: #f6f7f9;
+  --rose-50: #fbf7f5;
+  --rose-100: #f7ecea;
+  --rose-200: #f0dcdb;
+  --rose-300: #e4c2c4;
+  --rose-400: #d5a0a8;
+  --rose-500: #c5808d;
+  --rose-600: #ab6473;
+  --rose-700: #8e4f5d;
+
+  --bg: var(--rose-50);
   --card: #ffffff;
-  --ink: #1f2937;
-  --muted: #6b7280;
-  --accent: #4f46e5;
-  --accent-dark: #4338ca;
+  --ink: #362a2e;
+  --muted: #a18e91;
+  --accent: var(--rose-500);
+  --accent-dark: var(--rose-600);
   --danger: #b91c1c;
-  --border: #e5e7eb;
-  --ok: #047857;
+  --border: #f0e3e1;
+  --ok: #4c9a76;
+  --shadow-soft: 0 2px 10px rgba(151, 108, 116, 0.08);
+
+  /* time grid geometry */
+  --hour-px: 64px;
+  --gutter-px: 56px;
 }
 
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Plus Jakarta Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-size: 15px;
 }
@@ -35,64 +53,77 @@ a {
 }
 
 .sidebar {
-  width: 210px;
-  background: #111827;
-  color: #d1d5db;
+  width: 220px;
+  background: var(--card);
+  color: var(--ink);
   padding: 1.25rem 0.9rem;
   flex-shrink: 0;
+  border-right: 1px solid var(--border);
 }
 
 .sidebar .brand {
-  color: #fff;
-  font-weight: 700;
+  color: var(--ink);
+  font-weight: 800;
+  letter-spacing: -0.02em;
   margin-bottom: 1.5rem;
   display: block;
   padding: 0 0.6rem;
 }
 
+.sidebar .brand::before {
+  content: "✦ ";
+  color: var(--rose-500);
+}
+
 .sidebar nav a {
   display: block;
-  padding: 0.5rem 0.6rem;
-  border-radius: 8px;
-  margin-bottom: 0.2rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  margin-bottom: 0.25rem;
   font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .sidebar nav a:hover {
-  background: #1f2937;
-  color: #fff;
+  background: var(--rose-100);
+  color: var(--rose-700);
 }
 
 .sidebar .logout {
   margin-top: 2rem;
   width: 100%;
   background: transparent;
-  border: 1px solid #374151;
-  color: #d1d5db;
+  border: 1px solid var(--border);
+  color: var(--muted);
 }
 
 .content {
   flex: 1;
   padding: 1.75rem 2rem;
-  max-width: 1080px;
+  max-width: 1280px;
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   margin-bottom: 1.25rem;
 }
 
 h2 {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+  font-weight: 700;
   margin: 1.5rem 0 0.75rem;
 }
 
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
   padding: 1.25rem;
   margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-soft);
 }
 
 table {
@@ -100,7 +131,7 @@ table {
   border-collapse: collapse;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
 }
 
@@ -113,9 +144,9 @@ td {
 }
 
 th {
-  background: #f9fafb;
+  background: var(--rose-50);
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 tr:last-child td {
@@ -127,9 +158,11 @@ button,
   background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: 8px;
-  padding: 0.45rem 0.95rem;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
   font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
 }
 
@@ -145,7 +178,7 @@ button.secondary {
 }
 
 button.secondary:hover {
-  background: #f3f4f6;
+  background: var(--rose-100);
 }
 
 button.danger {
@@ -167,6 +200,7 @@ label {
   display: block;
   font-size: 0.85rem;
   color: var(--muted);
+  font-weight: 600;
   margin: 0.75rem 0 0.25rem;
 }
 
@@ -175,16 +209,25 @@ textarea,
 select {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.5rem 0.7rem;
   font-size: 0.95rem;
   font-family: inherit;
   background: #fff;
+  color: var(--ink);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid var(--rose-300);
+  border-color: transparent;
 }
 
 input[type="checkbox"] {
   width: auto;
   margin-right: 0.4rem;
+  accent-color: var(--rose-500);
 }
 
 .row {
@@ -210,11 +253,11 @@ input[type="checkbox"] {
   border-radius: 999px;
   font-size: 0.75rem;
   padding: 0.1rem 0.6rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .badge.ACTIVE {
-  background: #d1fae5;
+  background: #ddefe6;
   color: var(--ok);
 }
 
@@ -224,7 +267,7 @@ input[type="checkbox"] {
 }
 
 .badge.ARCHIVED {
-  background: #e5e7eb;
+  background: var(--rose-100);
   color: var(--muted);
 }
 
@@ -232,7 +275,7 @@ input[type="checkbox"] {
   background: #fef2f2;
   border: 1px solid #fecaca;
   color: var(--danger);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0.6rem 0.9rem;
   margin: 0.75rem 0;
   font-size: 0.9rem;
@@ -248,15 +291,16 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #111827;
+  background: linear-gradient(135deg, var(--rose-200), var(--rose-400));
 }
 
 .login-card {
   background: #fff;
-  border-radius: 12px;
+  border-radius: 18px;
   padding: 2rem;
   width: 100%;
   max-width: 380px;
+  box-shadow: 0 18px 50px rgba(142, 79, 93, 0.25);
 }
 
 .login-card h1 {
@@ -267,7 +311,7 @@ input[type="checkbox"] {
   width: 64px;
   height: 64px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--border);
 }
 
@@ -283,6 +327,8 @@ input[type="checkbox"] {
     gap: 0.4rem;
     overflow-x: auto;
     padding: 0.6rem 0.9rem;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
   }
 
   .sidebar .brand {
@@ -311,53 +357,377 @@ input[type="checkbox"] {
   }
 }
 
-/* --- calendar ------------------------------------------------------------- */
+/* --- calendar / scheduler ---------------------------------------------------- */
 
-.calendar-week {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+.cal-toolbar {
+  display: flex;
+  align-items: center;
   gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.cal-toolbar h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.cal-toolbar .spacer {
+  flex: 1;
+}
+
+.icon-btn {
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.icon-btn:hover {
+  background: var(--rose-100);
+}
+
+.seg {
+  display: inline-flex;
+  background: var(--rose-100);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.seg button {
+  background: transparent;
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 0.32rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.seg button:hover {
+  background: transparent;
+  color: var(--rose-700);
+}
+
+.seg button.on {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: var(--shadow-soft);
+}
+
+.cal-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.1rem;
   align-items: start;
 }
 
-.calendar-day {
-  padding: 0.75rem;
-  min-height: 90px;
+@media (max-width: 980px) {
+  .cal-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
-.calendar-item {
-  display: block;
+/* mini month calendar */
+
+.mini-cal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.9rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.mini-cal .mini-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.mini-cal .mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.mini-cal .dow {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.2rem 0;
+}
+
+.mini-day {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  border-radius: 50%;
+  aspect-ratio: 1;
   width: 100%;
-  text-align: left;
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
-  border-radius: 8px;
-  padding: 0.45rem 0.6rem;
-  margin-bottom: 0.4rem;
-  font-size: 0.82rem;
-  cursor: pointer;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.calendar-item:hover {
-  background: #e0e7ff;
+.mini-day:hover {
+  background: var(--rose-100);
 }
 
-.calendar-day label,
-.card form label {
+.mini-day.dim {
+  color: var(--rose-300);
+}
+
+.mini-day.today {
+  box-shadow: inset 0 0 0 1.5px var(--rose-400);
+}
+
+.mini-day.sel {
+  background: var(--rose-500);
+  color: #fff;
+}
+
+.legend {
+  margin-top: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.88rem;
+  gap: 0.35rem;
+  font-size: 0.82rem;
   color: var(--muted);
 }
 
-.card form input,
-.card form select,
-.card form textarea {
+.legend .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 0.45rem;
+}
+
+/* time grid */
+
+.timegrid {
+  background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.45rem 0.6rem;
-  font-size: 0.95rem;
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.timegrid-header {
+  display: grid;
+  border-bottom: 1px solid var(--border);
+  background: var(--rose-50);
+}
+
+.timegrid-header .day-head {
+  padding: 0.55rem 0.4rem;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-left: 1px solid var(--border);
+}
+
+.timegrid-header .day-head .num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-left: 0.3rem;
+}
+
+.timegrid-header .day-head.today .num {
+  background: var(--rose-500);
+  color: #fff;
+}
+
+.timegrid-scroll {
+  overflow: auto;
+  max-height: 72vh;
+}
+
+.timegrid-body {
+  display: grid;
+  position: relative;
+}
+
+.hour-gutter {
+  position: relative;
+}
+
+.hour-label {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.day-col {
+  position: relative;
+  border-left: 1px solid var(--border);
+  /* hour lines */
+  background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 100% var(--hour-px);
+}
+
+.appt-block {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 10px;
+  border: none;
+  border-left: 3px solid;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
   font-family: inherit;
   color: var(--ink);
+  box-shadow: 0 1px 4px rgba(151, 108, 116, 0.18);
+}
+
+.appt-block:hover {
+  filter: brightness(0.97);
+}
+
+.appt-block .t {
+  font-weight: 800;
+  display: block;
+}
+
+.appt-block .c {
+  color: rgba(54, 42, 46, 0.7);
+  display: block;
+}
+
+/* status colors (pastel, Appointments-Calendar style) */
+.st-CONFIRMED {
+  background: #fbe7ec;
+  border-left-color: #c5808d;
+}
+
+.st-CHECKED_IN {
+  background: #e7ecfb;
+  border-left-color: #7d8fc9;
+}
+
+.st-IN_PROGRESS {
+  background: #fdf3dd;
+  border-left-color: #d9a13f;
+}
+
+.st-COMPLETED {
+  background: #e3f2e9;
+  border-left-color: #4c9a76;
+}
+
+.st-CANCELLED_BY_CLIENT,
+.st-CANCELLED_BY_OWNER {
+  background: #f2f0ef;
+  border-left-color: #b3a8a6;
+  text-decoration: line-through;
+}
+
+.st-NO_SHOW {
+  background: #fceaea;
+  border-left-color: #c96666;
+}
+
+.legend .dot.st-CONFIRMED,
+.legend .dot.st-CHECKED_IN,
+.legend .dot.st-IN_PROGRESS,
+.legend .dot.st-COMPLETED,
+.legend .dot.st-CANCELLED_BY_OWNER,
+.legend .dot.st-NO_SHOW {
+  border: none;
+}
+
+/* detail drawer */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(54, 42, 46, 0.35);
+  z-index: 40;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 100vw);
+  background: var(--card);
+  z-index: 41;
+  box-shadow: -12px 0 40px rgba(54, 42, 46, 0.18);
+  padding: 1.4rem;
+  overflow-y: auto;
+}
+
+.drawer h2 {
+  margin: 0 0 0.2rem;
+}
+
+.drawer .close {
+  float: right;
+}
+
+.drawer .section {
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+}
+
+.drawer .line {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+/* modal (new appointment) */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(54, 42, 46, 0.35);
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1rem;
+  overflow-y: auto;
+}
+
+.modal-card {
+  background: var(--card);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 520px;
+  padding: 1.5rem;
+  box-shadow: 0 24px 70px rgba(54, 42, 46, 0.3);
+}
+
+.modal-card h2 {
+  margin: 0 0 0.75rem;
 }

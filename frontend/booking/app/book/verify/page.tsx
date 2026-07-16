@@ -16,6 +16,7 @@ import {
   type BookingState,
 } from "@/lib/bookingState";
 import HoldCountdown from "@/components/HoldCountdown";
+import Steps from "@/components/Steps";
 
 /**
  * Step 4: verify the code, then immediately confirm the appointment. The
@@ -87,41 +88,47 @@ export default function VerifyPage() {
   };
 
   return (
-    <>
-      <p style={{ marginTop: "1.25rem" }}>
-        <Link href="/book/details" className="meta">
-          ← Back to your details
-        </Link>
-      </p>
-      <h1>Verify your phone</h1>
-      <p className="meta" style={{ marginBottom: "1rem" }}>
-        Step 4 of 4 — we texted a 6-digit code to {booking.phone}
-      </p>
-      {booking.holdExpiresAt && <HoldCountdown expiresAt={booking.holdExpiresAt} />}
+    <div className="flow">
+      <Link href="/book/details" className="back-link">
+        ← Back to your details
+      </Link>
+      <h1 className="flow-title">Verify your phone</h1>
+      <Steps current={4} />
 
-      {error && <div className="notice">{error}</div>}
-      {resent && <p className="meta">A new code is on its way.</p>}
+      <div className="panel">
+        <div className="booking-recap">
+          <span className="icon">📲</span>
+          <span>
+            We texted a 6-digit code to <strong>{booking.phone}</strong>
+          </span>
+        </div>
+        {booking.holdExpiresAt && <HoldCountdown expiresAt={booking.holdExpiresAt} />}
 
-      <form className="detail booking-form" onSubmit={submit}>
-        <label>
-          Verification code
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={10}
-            style={{ letterSpacing: "0.3em", fontSize: "1.2rem" }}
-          />
-        </label>
-        <button className="button" disabled={submitting}>
-          {submitting ? "Confirming…" : "Verify & confirm booking"}
-        </button>
-        <button type="button" className="linklike" onClick={resend}>
-          Resend code
-        </button>
-      </form>
-    </>
+        {error && <div className="notice warn">{error}</div>}
+        {resent && <p className="meta">A new code is on its way.</p>}
+
+        <form className="booking-form" onSubmit={submit}>
+          <label>
+            Verification code
+            <input
+              className="otp"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={10}
+              placeholder="••••••"
+            />
+          </label>
+          <button className="button block" disabled={submitting}>
+            {submitting ? "Confirming…" : "Verify & confirm booking"}
+          </button>
+          <button type="button" className="linklike" onClick={resend}>
+            Resend code
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

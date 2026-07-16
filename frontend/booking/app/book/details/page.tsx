@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { startPhoneVerification, BookingApiError } from "@/lib/api";
 import { loadBooking, saveBooking, type BookingState } from "@/lib/bookingState";
 import HoldCountdown from "@/components/HoldCountdown";
+import Steps from "@/components/Steps";
 
 /** Step 3: contact details; submitting sends the verification code. */
 export default function DetailsPage() {
@@ -33,6 +34,8 @@ export default function DetailsPage() {
 
   if (!booking) return null;
 
+  const start = booking.start ? new Date(booking.start) : null;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -59,48 +62,58 @@ export default function DetailsPage() {
   };
 
   return (
-    <>
-      <p style={{ marginTop: "1.25rem" }}>
-        <Link href="/book/date-time" className="meta">
-          ← Pick a different time
-        </Link>
-      </p>
-      <h1>Your details</h1>
-      <p className="meta" style={{ marginBottom: "1rem" }}>
-        Step 3 of 4 — {booking.serviceName}
-        {booking.start && <> · {new Date(booking.start).toLocaleString()}</>}
-      </p>
-      {booking.holdExpiresAt && <HoldCountdown expiresAt={booking.holdExpiresAt} />}
+    <div className="flow">
+      <Link href="/book/date-time" className="back-link">
+        ← Pick a different time
+      </Link>
+      <h1 className="flow-title">Your details</h1>
+      <Steps current={3} />
 
-      {error && <div className="notice">{error}</div>}
+      <div className="panel">
+        <div className="booking-recap">
+          <span className="icon">🗓️</span>
+          <span>
+            <strong>{booking.serviceName}</strong>
+            {start && (
+              <span className="meta" style={{ display: "block" }}>
+                {start.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}{" "}
+                at {start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              </span>
+            )}
+          </span>
+        </div>
+        {booking.holdExpiresAt && <HoldCountdown expiresAt={booking.holdExpiresAt} />}
 
-      <form className="detail booking-form" onSubmit={submit}>
-        <label>
-          Name
-          <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={200} />
-        </label>
-        <label>
-          Mobile phone (we&apos;ll text you a code)
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-            placeholder="+1 555 010 0200"
-            inputMode="tel"
-          />
-        </label>
-        <label>
-          Email (optional, for your confirmation)
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" maxLength={320} />
-        </label>
-        <label>
-          Notes (optional)
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />
-        </label>
-        <button className="button" disabled={submitting}>
-          {submitting ? "Sending code…" : "Text me a verification code"}
-        </button>
-      </form>
-    </>
+        {error && <div className="notice warn">{error}</div>}
+
+        <form className="booking-form" onSubmit={submit}>
+          <label>
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={200} />
+          </label>
+          <label>
+            Mobile phone — we&apos;ll text you a code
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              placeholder="+1 555 010 0200"
+              inputMode="tel"
+            />
+          </label>
+          <label>
+            Email (optional, for your confirmation)
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" maxLength={320} />
+          </label>
+          <label>
+            Notes (optional)
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />
+          </label>
+          <button className="button block" disabled={submitting}>
+            {submitting ? "Sending code…" : "Text me a verification code"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

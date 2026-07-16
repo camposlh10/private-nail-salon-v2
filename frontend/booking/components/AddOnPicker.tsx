@@ -42,46 +42,46 @@ export default function AddOnPicker({ service }: { service: PublicServiceDetail 
   };
 
   return (
-    <div className="detail">
+    <div className="panel">
+      <h2 style={{ marginBottom: "0.8rem" }}>
+        {service.addOns.length === 0 ? "No add-ons for this service" : "Make it extra special"}
+      </h2>
       {service.addOns.length === 0 ? (
-        <p className="meta">No add-ons for this service — continue to pick a time.</p>
+        <p className="meta">Continue to pick a time that suits you.</p>
       ) : (
         service.addOns.map((a) => (
-          <label key={a.id} className="addon" style={{ cursor: "pointer" }}>
-            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-              <input
-                type="checkbox"
-                checked={selected.has(a.id)}
-                onChange={() => toggle(a.id)}
-              />
-              <div>
-                <div className="card-title">{a.name}</div>
-                {a.description && <div className="meta">{a.description}</div>}
+          <label key={a.id} className={`addon-card${selected.has(a.id) ? " selected" : ""}`}>
+            <span className="addon-main">
+              <input type="checkbox" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
+              <span>
+                <span className="card-title" style={{ display: "block" }}>
+                  {a.name}
+                </span>
+                {a.description && <span className="meta">{a.description}</span>}
                 {a.addedDurationMinutes > 0 && (
-                  <div className="meta">+{formatDuration(a.addedDurationMinutes)}</div>
+                  <span className="meta" style={{ display: "block" }}>
+                    +{formatDuration(a.addedDurationMinutes)}
+                  </span>
                 )}
-              </div>
-            </div>
-            <div className="price">
+              </span>
+            </span>
+            <span className="price">
               {a.price.amountCents > 0 ? formatCents(a.price.amountCents, a.price.currency) : "Included"}
-            </div>
+            </span>
           </label>
         ))
       )}
 
-      <div className="booking-summary">
-        <span>
-          Total: <strong>{formatDuration(totals.duration)}</strong>
-          {totals.cents > 0 && (
-            <>
-              {" · "}
-              <strong>{formatCents(totals.cents, service.price.currency)}</strong>
-              {service.priceType === "STARTING_AT" && <span className="meta"> (starting at)</span>}
-            </>
-          )}
-        </span>
+      <div className="summary-bar">
+        <div className="totals">
+          <span className="label">{formatDuration(totals.duration)}</span>
+          <span className="value">
+            {totals.cents > 0 ? formatCents(totals.cents, service.price.currency) : "Free"}
+            {service.priceType === "STARTING_AT" && totals.cents > 0 ? "+" : ""}
+          </span>
+        </div>
         <button className="button" onClick={proceed}>
-          Choose date &amp; time
+          Choose date &amp; time →
         </button>
       </div>
     </div>
